@@ -147,7 +147,7 @@ cd frontend
 python backend.py
 
 # Terminal 2: Start Cloudflare tunnel
-cloudflared tunnel --url http://localhost:7860
+cloudflared tunnel --url http://localhost:7860 --protocol http2
 ```
 
 Cloudflare will generate a public URL (e.g., `https://xxx-xxx-xxx.trycloudflare.com`) that you can share with others.
