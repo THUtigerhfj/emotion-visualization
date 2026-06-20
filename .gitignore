@@ -8,3 +8,6 @@ cloudflared.deb
 retinaface.md
 .deepface
 cloudflared-linux-amd64.deb
+ablation
+.claude
+report

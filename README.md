@@ -1,212 +1,265 @@
-# Emotion Prediction & Vision Transformer Explainability
+# Emotion Visualization - Emotion Recognition with Attention Visualization
 
-This project uses a CLIP ViT-L/14 based pipeline to predict facial emotions from images and adds a **Gradient Attention Rollout** mechanism to visualize *where* the model is looking in order to make that prediction.
+Facial emotion recognition with CLS attention visualization. We proposed our own method to enhance visualization quality. We also adopted the test-time register token method, which is proposed by **"Vision Transformers Don't Need Trained Registers"** (Jiang et al., NeurIPS 2025 Spotlight).
 
-The attention rollout produces a heatmap overlay showing the facial regions (e.g., eyes, mouth) that most strongly contributed to the predicted emotion.
+## Features
 
-## Requirements
+- **7-Emotion Classification**: Angry, Disgust, Fear, Happy, Sad, Surprise, Neutral
+- **CLS Attention Visualization**: See which facial regions the model focuses on for predictions
+- **Test-Time Registers**: Reduce attention artifacts using training-free register tokens
+- **Face Detection**: Automatic face detection and cropping with RetinaFace
+- **Three Visualization Modes**: Vanilla, Enhanced, and Registers
+- **Web Interface**: Modern frontend for interactive single-image analysis
+- **Batch Processing**: Process entire directories of images
+- **Cloudflare Tunnel Support**: Easily share your deployment publicly
 
-The project uses Python. Ensure you have installed the required dependencies:
+## Quick Start
 
 ```bash
-# Linux only: install OpenCV runtime dependency once
-sudo apt-get update && sudo apt-get install -y libgl1
+# 1. Install dependencies
+pip install -r requirements.txt
 
-# Activate your conda env first
+# 2. Download models (ViT classifier + RetinaFace)
+python src/download_model.py
+
+# 3. Run the frontend
+cd frontend
+python backend.py
+```
+
+Then open `http://localhost:7860` in your browser.
+
+## Installation
+
+### Prerequisites
+
+- Python 3.10+
+- CUDA (optional, for GPU acceleration)
+
+### Step 1: Create Environment
+
+```bash
+conda create -n emotion python=3.10
 conda activate emotion
-
-# Install Python packages (example uses Tsinghua mirror)
-python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-If you already have `tensorflow==2.21.x`, make sure `tf-keras` is installed (it is included in `requirements.txt`):
+### Step 2: Install Dependencies
 
 ```bash
-python -m pip install tf-keras -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install -r requirements.txt
 ```
 
-*(Note: As specified, `torch` and `numpy` should already be available in the environment).*
+This installs:
+- `torch` & `torchvision` - PyTorch deep learning framework
+- `transformers` - HuggingFace model library
+- `opencv-python` - Image processing
+- `pillow` - Image I/O
+- `numpy` - Numerical operations
+- `gradio` - UI framework (optional, for legacy gradio app)
+- `retina-face` - Face detection
+- `tf-keras` - Required dependency for RetinaFace
 
-If you re-run dependency installation later, use the same command above. Do not install `cv2` directly (there is no package named `cv2` on PyPI).
-
-## Setup
-
-First, download local model assets once:
-
-- Vision encoder: `tanganke/clip-vit-large-patch14_fer2013` (fine-tuned on FER2013)
-- Text branch + processor: `openai/clip-vit-large-patch14`
-- RetinaFace detector weights: `retinaface.h5`
+### Step 3: Download Models
 
 ```bash
 python src/download_model.py
 ```
 
-The script merges the fine-tuned vision encoder into the base CLIP model and stores everything in `models/clip_fer2013/` so you can run inferences entirely offline in the future.
+This downloads:
+- **ViT Emotion Model** → `models/emotion_vit/` - Fine-tuned ViT for facial emotion recognition
+- **RetinaFace Weights** → `models/retinaface/retinaface.h5` - Face detection model
 
-If your network cannot access GitHub release URLs, you can download RetinaFace weights only and provide a mirror URL:
+### Step 4: (Optional) Download FER2013 Dataset
+
+Only needed if you want to run the register neuron discovery pipeline:
 
 ```bash
-export RETINAFACE_WEIGHTS_URL="https://your-mirror.example.com/retinaface.h5"
-python src/download_model.py --retinaface-only
+# Option A: From Kaggle (recommended)
+# https://www.kaggle.com/datasets/msambare/fer2013
+# Extract to data/fer2013/
+
+# Expected structure:
+# data/fer2013/
+# ├── train/
+# │   ├── 0/  # Angry
+# │   ├── 1/  # Disgust
+# │   ├── 2/  # Fear
+# │   ├── 3/  # Happy
+# │   ├── 4/  # Sad
+# │   ├── 5/  # Surprise
+# │   └── 6/  # Neutral
+# └── test/
 ```
 
-After download, the script stores RetinaFace weights in `models/retinaface/retinaface.h5` and stages them to local DeepFace runtime cache, so Gradio does not need online download during inference.
+### Step 5: (Optional) Install Cloudflared
+
+For sharing your deployment publicly via Cloudflare Tunnel:
+
+```bash
+# Linux (AMD64)
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+
+# Or use the included .deb file
+sudo dpkg -i cloudflared-linux-amd64.deb
+```
+
+## Three Visualization Modes
+
+| Mode | Description | Method | Use Case |
+|------|-------------|--------|----------|
+| **Mode 1: Vanilla** | Raw CLS attention from last layer | No post-processing | Baseline visualization |
+| **Mode 2: Enhanced** | CLS attention + mask enhancement | Applies `enhance_rollout_mask` | Cleaner attention maps |
+| **Mode 3: Registers** | CLS attention + test-time registers | Adds register token intervention | Reduces outlier artifacts |
+
+**What are Register Tokens?**
+
+Following Jiang et al. (2025), we add 1 zero-initialized register token to absorb outlier activations:
+- **Discovery**: Find "register neurons" at MLP output (after fc2, in 768-dim hidden_size space)
+- **Intervention**: For each register neuron, find sign_max (largest absolute value) and shift it from patch tokens to the register token
+- **Result**: Cleaner attention patterns without retraining
 
 ## Usage
 
-Place any facial images you want to evaluate inside the `data/` folder, then run the inference script. The script will automatically utilize CUDA/GPU acceleration if available.
+### Frontend (Recommended)
+
+The modern web interface supports all three modes and real-time face detection:
 
 ```bash
-python src/inference.py --image_path data/your_test_image.jpg
+cd frontend
+python backend.py
 ```
 
-For example:
+The server runs on `http://0.0.0.0:7860`. Features:
+- Drag-and-drop image upload
+- Mode selection (Vanilla/Enhanced/Registers)
+- Face detection with bounding boxes
+- Per-face attention visualization
+- Emotion distribution summary
+
+### Share with Cloudflare Tunnel
+
+To make your frontend publicly accessible:
 
 ```bash
-python src/inference.py --image_path data/images/validation/happy/8.jpg
-```
+# Terminal 1: Start the backend
+cd frontend
+python backend.py
 
-### Options
-
-- `--image_path`: Path to an input facial expression image.
-- `--discard_ratio`: (Optional) Ratio of lowest attention heads to discard to reduce noise. Default is `0.9` (keeps the top 10% highest attention signals). You can experiment with lower values (e.g., `0.5`) if the heatmap is too constrained.
-- `--head_fusion`: (Optional) How to fuse attention heads. Options are `mean` (default) or `max` or `min`.
-
-### Gradio UI
-
-Set up UI by running:
-
-```bash
-python src/gradio_app.py
-```
-
-### Expose Gradio with Cloudflare Tunnel
-
-If you want others to access your local Gradio service without renting a cloud server, use Cloudflare Tunnel.
-
-1. Start Gradio locally (this project machine):
-
-```bash
-# Linux/macOS
-export GRADIO_SERVER_NAME=0.0.0.0
-export GRADIO_SERVER_PORT=7860
-export GRADIO_QUEUE_MAX_SIZE=10
-export GRADIO_QUEUE_WORKERS=1
-export GRADIO_MAX_THREADS=16
-export GRADIO_SHARE=false
-python src/gradio_app.py
-```
-
-```powershell
-# Windows PowerShell
-$env:GRADIO_SERVER_NAME="0.0.0.0"
-$env:GRADIO_SERVER_PORT="7860"
-$env:GRADIO_QUEUE_MAX_SIZE="10"
-$env:GRADIO_QUEUE_WORKERS="1"
-$env:GRADIO_MAX_THREADS="16"
-$env:GRADIO_SHARE="false"
-python src/gradio_app.py
-```
-
-1. Install `cloudflared` on the same machine where Gradio is running.
-
-- Linux (recommended quick install):
-
-```bash
-wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared-linux-amd64.deb
-cloudflared --version
-```
-
-- Windows:
-: download from the Cloudflare official releases page, install it, then verify in PowerShell:
-
-```powershell
-cloudflared --version
-```
-
-1. Start a quick tunnel to your local Gradio port (run this in another terminal):
-
-```bash
+# Terminal 2: Start Cloudflare tunnel
 cloudflared tunnel --url http://localhost:7860
 ```
 
-You will get a public URL like:
+Cloudflare will generate a public URL (e.g., `https://xxx-xxx-xxx.trycloudflare.com`) that you can share with others.
 
-```text
-https://xxxx.trycloudflare.com
-```
+### Batch Inference
 
-1. Share that URL with users.
-
-1. Stability tips (important):
-
-- Prefer HTTP/2 for better cross-region stability:
+Process entire directories of images:
 
 ```bash
-cloudflared tunnel --url http://localhost:7860 --protocol http2
+# Mode 1: Vanilla (baseline)
+python src/observe_batch_inference_attention.py \
+    --input_dir data/observe \
+    --output_dir outputs/mode1_vanilla
+
+# Mode 2: Enhanced (with mask enhancement)
+python src/observe_batch_inference_attention.py \
+    --input_dir data/observe \
+    --output_dir outputs/mode2_enhanced \
+    --enhance_mask
+
+# Mode 3: Registers (with test-time registers)
+python src/observe_batch_inference_attention.py \
+    --input_dir data/observe \
+    --output_dir outputs/mode3_registers \
+    --use_registers \
+    --register_neurons models/register_neurons.json
 ```
 
-- Keep Gradio queue enabled to absorb burst requests.
-- Keep `GRADIO_QUEUE_WORKERS=2` (or reduce to `1` if GPU memory is tight).
+**Note**: Mode 3 requires `register_neurons.json`. See [USER_GUIDE.md](USER_GUIDE.md) for the register discovery pipeline.
 
-1. Use two terminal sessions for long-running service:
+### Register Neuron Discovery
 
-- Session 1: run Gradio (`python src/gradio_app.py`)
-- Session 2: run Cloudflare Tunnel (`cloudflared tunnel --url http://localhost:7860 --protocol http2`)
-
-On Linux servers, you can use `tmux` and keep one process per tmux pane/window.
-
-`conda info --base` gives you the base path, and before activate conda in tmux, run `source <conda_base_path>/etc/profile.d/conda.sh` to enable `conda activate` in tmux. e.g., `source /base/mambaforge/etc/profile.d/conda.sh`
-
-### Mass Inference
-
-To run inference on a batch of images, run:
+The discovery pipeline finds which neurons to intervene on for Mode 3. See [USER_GUIDE.md](USER_GUIDE.md) for detailed instructions.
 
 ```bash
-python src/observe_batch_inference.py --input_dir data/ --output_dir outputs/
+python src/run_complete_discovery.py \
+    --image_folder data/fer2013/train \
+    --num_images 1000 \
+    --seed 42 \
+    --explosion_layer 6
 ```
 
-### Output
-
-The output will be saved into the `outputs/` directory.
+This generates `models/register_neurons.json` for use with Mode 3.
 
 ## Project Structure
 
-```text
-├── data/                  # Place your input images here 
-├── models/                # Local cache for the downloaded classifier model
-├── outputs/               # Generated heatmaps and visualizations land here
-├── src/                   # Source code
-│   ├── download_model.py  # Utility to pull HF models locally
-│   ├── inference.py       # Core prediction and gradient rollout script
-|   ├── gradio_app.py      # Gradio UI for interactive inference
-│   └── observe_batch_inference.py  # Script for batch inference on image directories
-├── requirements.txt       # Python dependencies
-└── README.md
 ```
+emotion-gar/
+├── data/                          # Input data
+│   ├── observe/                   # Test images for batch inference
+│   └── fer2013/                   # Training data (optional, for discovery)
+├── models/                         # Downloaded models
+│   ├── emotion_vit/               # ViT classification model
+│   ├── register_neurons.json      # Discovered register neurons
+│   └── retinaface/               # Face detector weights
+├── outputs/                       # Generated visualizations
+│   ├── mode1_vanilla/
+│   ├── mode2_enhanced/
+│   └── mode3_registers/
+├── frontend/                      # Web interface
+│   ├── backend.py                # Flask server
+│   ├── static/
+│   │   ├── css/style.css
+│   │   └── js/app.js
+│   └── templates/index.html
+├── src/                           # Source code
+│   ├── download_model.py          # Model downloader
+│   ├── inference.py               # Utility functions
+│   ├── observe_batch_inference_attention.py  # Batch inference
+│   ├── run_complete_discovery.py             # Register discovery
+│   └── vit_with_registers.py                 # Register token wrapper
+├── requirements.txt
+├── README.md                      # This file
+└── USER_GUIDE.md                  # Detailed guide
+```
+
+## How It Works
+
+### CLS Attention Visualization
+
+Instead of complex attention rollout, we extract the CLS token's attention weights from the last transformer layer. This shows which image patches the model considered important for its prediction.
+
+### Test-Time Registers
+
+ViT models produce "outlier" patch tokens with abnormally high norms, causing attention spikes. Our solution:
+
+1. **Discovery**: Find register neurons at MLP output (after fc2, in 768-dim hidden_size space)
+2. **Intervention**: For each register neuron, find the `sign_max` (value with largest absolute value) and shift it from patch tokens to the register token
+3. **Result**: Patch tokens no longer have extreme outliers → attention is smoother
+
+### Face Detection
+
+We use RetinaFace for:
+- Automatic face detection
+- Bounding box visualization
+- Face cropping before emotion classification
+
+## Citation
+
+Based on:
+
+> **Vision Transformers Don't Need Trained Registers**  
+> Nick Jiang, Amil Dravid, Alexei Efros, Yossi Gandelsman  
+> NeurIPS 2025 (Spotlight)  
+> [arXiv:2506.08010](https://arxiv.org/abs/2506.08010)
 
 ## Credits
 
-- [FER2013 Vision Encoder](https://huggingface.co/tanganke/clip-vit-large-patch14_fer2013) - By `tanganke`
-- [Base CLIP Model](https://huggingface.co/openai/clip-vit-large-patch14) - By `openai`
-- [vit-explain](https://github.com/jacobgil/vit-explain) - Original gradient rollout explanation method for PyTorch by Jacob Gildenblat. Modified for Hugging Face transformer layers and CUDA usage here.
-- [RetinaFace](https://github.com/serengil/retinaface) - Face detection model by Serengil.
+- [FER2013 ViT Model](https://huggingface.co/dima806/facial_emotions_image_detection) - By `dima806`
+- [Test-Time Registers](https://github.com/nickjiang2378/test-time-registers) - By Nick Jiang et al.
+- [RetinaFace](https://github.com/serengil/retinaface) - Face detection by Serengil
 
-## Problems & Future Work
+## License
 
-We find that the Gradient Attention Rollout (by Jacob Gildenblat) works well for vanilla ViT on imagenet classification. However, it suffers from poor visualization quality when applied to the facial emotion recognition task using finetuned CLIP ViT-L/14. Specifically, there are often meaningless areas with extremely high importance (even off the face). We use a trick to discard the extremely large portion of mask which seems to lie out of a resonable distribution (see detail in `src/inference.py`'s `enhance_rollout_mask()` function). After this, the visualization quality is improved greatly and the true facial features (e.g., eyes, mouth) are highlighted more clearly.
-
-Actually, this phenomenon does not only happen to finetuned models. For more details, please refer to the paper "VISION TRANSFORMERS NEED REGISTERS".
-
-```bibtex
-@misc{darcet2024visiontransformersneedregisters,
-      title={Vision Transformers Need Registers}, 
-      author={Timothée Darcet and Maxime Oquab and Julien Mairal and Piotr Bojanowski},
-      year={2024},
-      eprint={2309.16588},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2309.16588}, 
-}
-```
+This project is for research and educational purposes.

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Recognition with Attention Visualization</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎭 Emotion Recognition with Attention Visualization</h1>
+        </header>
+
+        <main>
+            <!-- Controls Section -->
+            <section class="controls">
+                <div class="upload-section">
+                    <label for="imageUpload" class="upload-btn" id="uploadLabel">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span>Upload Image</span>
+                    </label>
+                    <input type="file" id="imageUpload" accept="image/*" hidden>
+                    <span class="file-name" id="fileName">No file selected</span>
+                </div>
+
+                <div class="mode-selector">
+                    <span class="mode-label">Mode:</span>
+                    <div class="radio-group">
+                        <label class="radio-option" data-mode="vanilla">
+                            <input type="radio" name="mode" value="vanilla" checked>
+                            <span class="radio-text">Vanilla</span>
+                        </label>
+                        <label class="radio-option" data-mode="enhanced">
+                            <input type="radio" name="mode" value="enhanced">
+                            <span class="radio-text">Enhanced</span>
+                        </label>
+                        <label class="radio-option" data-mode="registers">
+                            <input type="radio" name="mode" value="registers">
+                            <span class="radio-text">Registers</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button class="run-btn" id="runBtn" disabled>
+                    <span class="btn-text">Run Inference</span>
+                    <span class="btn-loader hidden">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" stroke-opacity="0.3"></circle>
+                            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="4" stroke-linecap="round">
+                                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+                            </path>
+                        </svg>
+                        Processing...
+                    </span>
+                </button>
+            </section>
+
+            <!-- Results Section - Always Visible -->
+            <section class="results">
+                <div class="results-grid">
+                    <!-- Left Column: Image + Summary -->
+                    <div class="left-column">
+                        <!-- Image Panel -->
+                        <div class="image-panel">
+                            <div class="panel-header">
+                                <h2>Detected Faces</h2>
+                                <span class="face-count" id="faceCount">0 faces</span>
+                            </div>
+                            <div class="image-container" id="imageContainer">
+                                <div class="placeholder">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                    </svg>
+                                    <p>Upload an image to see detected faces</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary Panel -->
+                        <div class="summary-panel">
+                            <div class="panel-header">
+                                <h2>Summary</h2>
+                            </div>
+                            <div class="summary-content" id="summaryContent">
+                                <div class="placeholder">
+                                    <p>Waiting for results...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Face Analysis -->
+                    <div class="faces-panel">
+                        <div class="panel-header">
+                            <h2>Face Analysis</h2>
+                        </div>
+                        <div class="faces-scroll" id="facesScroll">
+                            <div class="placeholder">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                                <p>Run inference to see face analysis</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
