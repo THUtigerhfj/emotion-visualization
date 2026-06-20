@@ -4,6 +4,7 @@ legacy
 models
 outputs
 __pycache__/
+__init__.py
 cloudflared.deb
 retinaface.md
 .deepface
